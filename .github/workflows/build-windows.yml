@@ -1,0 +1,149 @@
+name: build-shotclip-windows
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.set_version.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            autotools base-devel bzip2 coreutils git gzip tar unzip xz zip
+            perl-List-MoreUtils perl-XML-Parser
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-meson
+            mingw-w64-x86_64-nasm
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-yasm
+            mingw-w64-x86_64-cairo
+            mingw-w64-x86_64-eigen3
+            mingw-w64-x86_64-dlfcn
+            mingw-w64-x86_64-fftw
+            mingw-w64-x86_64-gcc-fortran
+            mingw-w64-x86_64-gettext-tools
+            mingw-w64-x86_64-harfbuzz
+            mingw-w64-x86_64-lame
+            mingw-w64-x86_64-libarchive
+            mingw-w64-x86_64-libepoxy
+            mingw-w64-x86_64-libexif
+            mingw-w64-x86_64-libimagequant
+            mingw-w64-x86_64-libsamplerate
+            mingw-w64-x86_64-libtheora
+            mingw-w64-x86_64-libvorbis
+            mingw-w64-x86_64-libvpx
+            mingw-w64-x86_64-libwebp
+            mingw-w64-x86_64-libxml2
+            mingw-w64-x86_64-lilv
+            mingw-w64-x86_64-onevpl
+            mingw-w64-x86_64-openblas
+            mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-opus
+            mingw-w64-x86_64-potrace
+            mingw-w64-x86_64-python-pip
+            mingw-w64-x86_64-qt6-base
+            mingw-w64-x86_64-qt6-charts
+            mingw-w64-x86_64-qt6-declarative
+            mingw-w64-x86_64-qt6-imageformats
+            mingw-w64-x86_64-qt6-multimedia
+            mingw-w64-x86_64-qt6-multimedia-wmf
+            mingw-w64-x86_64-qt6-svg
+            mingw-w64-x86_64-qt6-tools
+            mingw-w64-x86_64-qt6-translations
+            mingw-w64-x86_64-qt6-websockets
+            mingw-w64-x86_64-rubberband
+            mingw-w64-x86_64-sox
+            mingw-w64-x86_64-svt-av1
+            mingw-w64-x86_64-vid.stab
+            mingw-w64-x86_64-vulkan-headers
+            mingw-w64-x86_64-vulkan-loader
+            mingw-w64-x86_64-x264
+            mingw-w64-x86_64-x265
+            mingw-w64-x86_64-zimg
+
+      - name: Set version
+        id: set_version
+        shell: msys2 {0}
+        run: |
+          VERSION="0.3.0"
+          echo VERSION=$VERSION
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        shell: msys2 {0}
+        run: |
+          pacman --noconfirm -Rdd mingw-w64-x86_64-aom
+          echo VERSION=$VERSION
+          cd "$HOME"
+          echo Downloading a few prebuilt dependencies
+          curl -kLO --no-progress-meter https://s3.amazonaws.com/misc.meltymedia/shotcut-build/mlt-prebuilt-mingw64-v7.txz
+          echo Extracting prebuilt dependencies
+          tar -xJf mlt-prebuilt-mingw64-v7.txz
+          rm mlt-prebuilt-mingw64-v7.txz
+
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          echo INSTALL_DIR=\"$(pwd)/build\"
+          echo INSTALL_DIR=\"$(pwd)/build\" > build-shotcut.conf
+          echo SHOTCUT_VERSION=\"$VERSION\" >> build-shotcut.conf
+          echo SHOTCUT_HEAD=0 >> build-shotcut.conf
+          echo SHOTCUT_REPOLOC=\"$(pwd)\" >> build-shotcut.conf
+          echo SHOTCUT_REVISION=\"${{ github.sha }}\" >> build-shotcut.conf
+          bash scripts/build-shotcut-msys2.sh
+
+      - name: Bundle the offline llama.cpp runtime
+        shell: msys2 {0}
+        run: |
+          LLAMA_VERSION="b10516"
+          LLAMA_ARCHIVE="llama-${LLAMA_VERSION}-bin-win-vulkan-x64.zip"
+          LLAMA_SHA256="530f57d2a874ce017827c1e5a926812b9d5de4667248575d1372b1c0acf94d83"
+          curl -fL --retry 3 --no-progress-meter \
+            "https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_VERSION}/${LLAMA_ARCHIVE}" \
+            -o "$LLAMA_ARCHIVE"
+          echo "${LLAMA_SHA256}  ${LLAMA_ARCHIVE}" | sha256sum -c -
+          mkdir -p llama-runtime
+          unzip -q "$LLAMA_ARCHIVE" -d llama-runtime
+          find llama-runtime -type f \( -name '*.exe' -o -name '*.dll' \) \
+            -exec cp -p '{}' build/Shotcut/ \;
+          curl -fL --retry 3 --no-progress-meter \
+            "https://raw.githubusercontent.com/ggml-org/llama.cpp/${LLAMA_VERSION}/LICENSE" \
+            -o build/Shotcut/LICENSE.llama.cpp.txt
+          test -f build/Shotcut/llama-cli.exe
+          test -f build/Shotcut/whisper-cli.exe
+          test -f build/Shotcut/ffmpeg.exe
+          test -f build/Shotcut/ffprobe.exe
+
+      - name: Build the Windows installer
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item packaging/windows/shotclip-logo.ico build/shotclip-logo.ico
+          choco install innosetup --no-progress -y
+          $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $compiler)) {
+            throw "Inno Setup compiler was not found at $compiler"
+          }
+          & $compiler "/O$pwd\dist" "/FShotClip-$env:VERSION-Windows-x64-Setup" "build\shotcut.iss"
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: ShotClip-${{ steps.set_version.outputs.version }}-Windows-x64
+          path: |
+            ./dist/ShotClip-${{ steps.set_version.outputs.version }}-Windows-x64-Setup.exe
+          if-no-files-found: error
