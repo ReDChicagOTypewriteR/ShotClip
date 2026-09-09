@@ -43,6 +43,11 @@ jobs:
               Name = "llama.zip"
               Url = "https://github.com/ggml-org/llama.cpp/releases/download/b10516/llama-b10516-bin-win-vulkan-x64.zip"
               Hash = "530f57d2a874ce017827c1e5a926812b9d5de4667248575d1372b1c0acf94d83"
+            },
+            @{
+              Name = "llama-source.zip"
+              Url = "https://github.com/ggml-org/llama.cpp/archive/refs/tags/b10516.zip"
+              Hash = "75cab4e75a75628eadf5ef3fec4cabc71bdb0f13c7e7a808302aa18802403984"
             }
           )
           foreach ($item in $items) {
@@ -56,6 +61,11 @@ jobs:
           Get-ChildItem runtime-downloads/ffmpeg -Recurse -File -Filter ffprobe.exe | Copy-Item -Destination runtime/win32-x64/ffprobe.exe
           Get-ChildItem runtime-downloads/whisper -Recurse -File | Where-Object { $_.Extension -in ".exe", ".dll" } | Copy-Item -Destination runtime/win32-x64
           Get-ChildItem runtime-downloads/llama -Recurse -File | Where-Object { $_.Extension -in ".exe", ".dll" } | Copy-Item -Destination runtime/win32-x64
+          $llamaSource = Get-ChildItem runtime-downloads/llama-source -Directory -Filter "llama.cpp-*" | Select-Object -First 1
+          if (-not $llamaSource) { throw "llama.cpp source directory missing" }
+          cmake -S $llamaSource.FullName -B runtime-downloads/llama-build -A x64 -DBUILD_SHARED_LIBS=OFF -DGGML_NATIVE=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_TOOLS=OFF -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_APP=OFF -DLLAMA_BUILD_EXAMPLES=ON
+          cmake --build runtime-downloads/llama-build --config Release --target llama-embedding --parallel 2
+          Get-ChildItem runtime-downloads/llama-build -Recurse -File -Filter llama-embedding.exe | Select-Object -First 1 | Copy-Item -Destination runtime/win32-x64/llama-embedding.exe
           if (-not (Test-Path runtime/win32-x64/whisper-cli.exe)) {
             $legacy = Get-ChildItem runtime/win32-x64 -File -Filter main.exe | Select-Object -First 1
             if ($legacy) { Copy-Item $legacy.FullName runtime/win32-x64/whisper-cli.exe }
