@@ -4,7 +4,7 @@ if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.20")
   cmake_policy(SET CMP0115 NEW)
 endif()
 
-set(SHOTCLIP_VERSION "0.3.0" CACHE STRING "ShotClip product version")
+set(SHOTCLIP_VERSION "0.4.0" CACHE STRING "ShotClip product version")
 if(NOT DEFINED SHOTCUT_VERSION)
   set(SHOTCUT_VERSION "${SHOTCLIP_VERSION}")
 endif()

@@ -7,6 +7,8 @@ add_executable(shotcut WIN32 MACOSX_BUNDLE
   agent/localllamaprovider.cpp agent/localllamaprovider.h
   agent/timelinesafetycommand.cpp agent/timelinesafetycommand.h
   agent/subtitleutils.cpp agent/subtitleutils.h
+  agent/medialibrary.cpp agent/medialibrary.h
+  docks/medialibrarydock.cpp docks/medialibrarydock.h
   actions.cpp actions.h
   autosavefile.cpp autosavefile.h
   commands/filtercommands.cpp commands/filtercommands.h

@@ -16,6 +16,7 @@
  */
 
 #include "mainwindow.h"
+#include "docks/medialibrarydock.h"
 #include "ui_mainwindow.h"
 
 #include "Logger.h"
@@ -874,6 +875,27 @@ void MainWindow::setupAndConnectDocks()
             SLOT(onElementsDockTriggered(bool)));
 
     m_agentDock = new AgentDock(this);
+    auto *mediaLibrary = new MediaLibraryDock(this);
+    addDockWidget(Qt::LeftDockWidgetArea, mediaLibrary);
+    mediaLibrary->hide();
+    mediaLibrary->toggleViewAction()->setText(tr("素材理解"));
+    ui->menuView->addAction(mediaLibrary->toggleViewAction());
+    ui->mainToolBar->insertAction(ui->dummyAction, mediaLibrary->toggleViewAction());
+    connect(mediaLibrary, &MediaLibraryDock::sourceRequested, this, [this](const QString &path, double seconds) {
+        if (open(path, nullptr, false) && MLT.isClip() && MLT.producer()
+            && QFileInfo(QString::fromUtf8(MLT.producer()->get("resource"))).canonicalFilePath()
+                == QFileInfo(path).canonicalFilePath())
+            m_player->seek(qRound(seconds * MLT.profile().fps()));
+    });
+    connect(mediaLibrary, &MediaLibraryDock::addSourceRequested, this, [this](const QString &path) {
+        if (open(path, nullptr, false) && MLT.isClip() && MLT.producer()
+            && QFileInfo(QString::fromUtf8(MLT.producer()->get("resource"))).canonicalFilePath()
+                == QFileInfo(path).canonicalFilePath()) {
+            m_playlistDock->onAppendCutActionTriggered();
+            m_playlistDock->show();
+            m_playlistDock->raise();
+        }
+    });
     m_agentDock->toggleViewAction()->setObjectName(QStringLiteral("actionShotClipAgent"));
     m_agentDock->toggleViewAction()->setShortcut(
         QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_A));

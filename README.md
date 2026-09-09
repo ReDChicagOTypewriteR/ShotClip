@@ -1,14 +1,19 @@
-# ShotClip 0.3.0 Demo
+# ShotClip 0.4.0 Demo
 
-ShotClip 是基于 Shotcut/MLT 的完全离线剪辑实验分支。0.3.0 保留 Shotcut 已验证的
+ShotClip 是基于 Shotcut/MLT 的离线剪辑实验分支。0.4.0 保留 Shotcut 的
 专业时间线、字幕、滤镜、音频与导出能力，并新增一个原生的 **ShotClip Agent** 工作区，
 用于先生成结构化剪辑建议、由用户确认，再写入时间线。
+
+0.4.0 新增“素材理解”：批量文件/文件夹导入、五分钟分段的本地 Whisper 转录、缓存与断点
+继续、跨素材关键词搜索、文稿定位原片、加入播放列表。本版是长素材理解的基础层，**还不
+会根据要求自动挑选多个素材并生成十分钟成片**，也不包含画面语义识别。
 
 Windows 安装版采用“一次安装、本地模型即插即用”的方式：安装包内置 FFmpeg、FFprobe、
 whisper.cpp 与 llama.cpp 运行引擎，不内置数 GB 的模型文件。安装后按 `Ctrl+Shift+A`
 打开 Agent，点击“导入本地模型”，选择 GGUF 文件即可开始使用；Whisper 转录模型为可选项。
 Agent 默认收起以保留时间线空间，也可以停靠在主界面右侧或弹出为独立窗口。
 
+- [0.4.0 批量素材理解：使用、验证与限制](docs/shotclip-0.4.0.md)
 - [0.3.0 llama.cpp 模型导入与结构化 Agent 工具](docs/shotclip-0.3.0.md)
 - [推荐模型下载与 Windows x64 打包说明](docs/shotclip-models-and-windows.md)
 - [0.2.0 功能、使用方式与已知限制](docs/shotclip-0.2.0.md)

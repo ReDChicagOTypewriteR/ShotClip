@@ -105,7 +105,7 @@ AgentDock::AgentDock(QWidget *parent)
     titleLayout->setSpacing(1);
     auto *title = new QLabel(QStringLiteral("ShotClip Agent"), root);
     title->setObjectName(QStringLiteral("AgentTitle"));
-    auto *version = new QLabel(QStringLiteral("0.3.0 Demo · 结构化本地 Agent"), root);
+    auto *version = new QLabel(QStringLiteral("0.4.0 · 批量素材理解"), root);
     version->setObjectName(QStringLiteral("AgentSubtitle"));
     titleLayout->addWidget(title);
     titleLayout->addWidget(version);

@@ -51,3 +51,9 @@ add_executable(test_local_llama_provider
 target_include_directories(test_local_llama_provider PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(test_local_llama_provider PRIVATE Qt6::Core Qt6::Test)
 add_test(NAME local_llama_provider COMMAND test_local_llama_provider)
+
+add_executable(test_media_library test_media_library.cpp
+  ${CMAKE_SOURCE_DIR}/src/agent/medialibrary.cpp)
+target_include_directories(test_media_library PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(test_media_library PRIVATE Qt6::Core Qt6::Test)
+add_test(NAME media_library COMMAND test_media_library)
