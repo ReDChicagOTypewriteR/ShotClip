@@ -76,6 +76,7 @@ jobs:
           Invoke-WebRequest "https://raw.githubusercontent.com/FFmpeg/FFmpeg/n9.0/COPYING.GPLv3" -OutFile runtime/win32-x64/LICENSE.FFmpeg.txt
           Invoke-WebRequest "https://raw.githubusercontent.com/ggml-org/whisper.cpp/b4938/LICENSE" -OutFile runtime/win32-x64/LICENSE.whisper.cpp.txt
           Invoke-WebRequest "https://raw.githubusercontent.com/ggml-org/llama.cpp/b10516/LICENSE" -OutFile runtime/win32-x64/LICENSE.llama.cpp.txt
+          Remove-Item runtime-downloads -Recurse -Force
       - name: Generate installer icon
         shell: pwsh
         run: |
