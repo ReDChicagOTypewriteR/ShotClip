@@ -1,0 +1,55 @@
+{
+  "name": "shotclip-ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Offline AI workflow that turns long-form media into editable Premiere timelines.",
+  "main": "dist-electron/main.cjs",
+  "author": "AleXJokeR",
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "dev": "npm run build:electron && concurrently -k \"vite --host 127.0.0.1\" \"wait-on tcp:5173 && cross-env SHOTCLIP_DEV_URL=http://127.0.0.1:5173 electron .\"",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
+    "test": "vitest run",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build": "npm run typecheck && npm run test && vite build && npm run build:electron",
+    "pack:win": "npm run build && electron-builder --win nsis --x64"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "zod": "latest",
+    "zustand": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "concurrently": "latest",
+    "cross-env": "latest",
+    "electron": "latest",
+    "electron-builder": "latest",
+    "typescript": "latest",
+    "vite": "latest",
+    "vitest": "latest",
+    "wait-on": "latest"
+  },
+  "build": {
+    "appId": "top.alexjoker.shotclip.ai",
+    "productName": "ShotClip AI",
+    "directories": { "output": "release" },
+    "files": ["dist/**/*", "dist-electron/**/*", "package.json"],
+    "extraResources": [{ "from": "runtime", "to": "runtime" }],
+    "asar": true,
+    "win": { "icon": "build/icon.ico", "target": [{ "target": "nsis", "arch": ["x64"] }] },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "ShotClip-AI-${version}-Windows-x64-Setup.${ext}"
+    }
+  }
+}

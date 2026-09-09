@@ -1,0 +1,86 @@
+name: build-shotclip-ai-windows
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: shotclip-ai
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: shotclip-ai/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Download and verify offline runtimes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force runtime/win32-x64 | Out-Null
+          New-Item -ItemType Directory -Force runtime-downloads | Out-Null
+          $items = @(
+            @{
+              Name = "ffmpeg.zip"
+              Url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-08-23-15/ffmpeg-n9.0.1-27-g9b0578816c-win64-gpl-9.0.zip"
+              Hash = "97f63a0d966351031c4fd9bd8c74d67cb42093907594add2a62ae59c9abd3e7e"
+            },
+            @{
+              Name = "whisper.zip"
+              Url = "https://github.com/ggml-org/whisper.cpp/releases/download/b4938/whisper-bin-x64.zip"
+              Hash = "c2a4b60edb11f7e11a9191ffb50929535527d4d91c9903dbe3e554583bbbc63d"
+            },
+            @{
+              Name = "llama.zip"
+              Url = "https://github.com/ggml-org/llama.cpp/releases/download/b10516/llama-b10516-bin-win-vulkan-x64.zip"
+              Hash = "530f57d2a874ce017827c1e5a926812b9d5de4667248575d1372b1c0acf94d83"
+            }
+          )
+          foreach ($item in $items) {
+            $archive = Join-Path runtime-downloads $item.Name
+            Invoke-WebRequest $item.Url -OutFile $archive
+            if ((Get-FileHash $archive -Algorithm SHA256).Hash.ToLower() -ne $item.Hash) { throw "Checksum mismatch: $($item.Name)" }
+            $target = Join-Path runtime-downloads ([IO.Path]::GetFileNameWithoutExtension($item.Name))
+            Expand-Archive $archive $target -Force
+          }
+          Get-ChildItem runtime-downloads/ffmpeg -Recurse -File -Filter ffmpeg.exe | Copy-Item -Destination runtime/win32-x64/ffmpeg.exe
+          Get-ChildItem runtime-downloads/ffmpeg -Recurse -File -Filter ffprobe.exe | Copy-Item -Destination runtime/win32-x64/ffprobe.exe
+          Get-ChildItem runtime-downloads/whisper -Recurse -File | Where-Object { $_.Extension -in ".exe", ".dll" } | Copy-Item -Destination runtime/win32-x64
+          Get-ChildItem runtime-downloads/llama -Recurse -File | Where-Object { $_.Extension -in ".exe", ".dll" } | Copy-Item -Destination runtime/win32-x64
+          if (-not (Test-Path runtime/win32-x64/whisper-cli.exe)) {
+            $legacy = Get-ChildItem runtime/win32-x64 -File -Filter main.exe | Select-Object -First 1
+            if ($legacy) { Copy-Item $legacy.FullName runtime/win32-x64/whisper-cli.exe }
+          }
+          foreach ($required in "ffmpeg.exe", "ffprobe.exe", "whisper-cli.exe", "llama-cli.exe", "llama-embedding.exe") {
+            if (-not (Test-Path "runtime/win32-x64/$required")) { throw "Missing runtime: $required" }
+          }
+          Invoke-WebRequest "https://raw.githubusercontent.com/FFmpeg/FFmpeg/n9.0/COPYING.GPLv3" -OutFile runtime/win32-x64/LICENSE.FFmpeg.txt
+          Invoke-WebRequest "https://raw.githubusercontent.com/ggml-org/whisper.cpp/b4938/LICENSE" -OutFile runtime/win32-x64/LICENSE.whisper.cpp.txt
+          Invoke-WebRequest "https://raw.githubusercontent.com/ggml-org/llama.cpp/b10516/LICENSE" -OutFile runtime/win32-x64/LICENSE.llama.cpp.txt
+      - name: Generate installer icon
+        shell: pwsh
+        run: |
+          choco install imagemagick --no-progress -y
+          magick build/icon.svg -define icon:auto-resize=256,128,64,48,32,16 build/icon.ico
+      - name: Verify and package
+        run: npm run pack:win
+      - name: Verify installer
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem release/ShotClip-AI-*-Windows-x64-Setup.exe | Select-Object -First 1
+          if (-not $installer -or $installer.Length -lt 100MB) { throw "Installer missing or unexpectedly small" }
+          Get-FileHash $installer.FullName -Algorithm SHA256
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ShotClip-AI-0.1.0-Windows-x64
+          path: shotclip-ai/release/ShotClip-AI-0.1.0-Windows-x64-Setup.exe
+          if-no-files-found: error
