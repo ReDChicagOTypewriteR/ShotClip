@@ -34,15 +34,22 @@ npm run build
 npm run pack:win
 ```
 
-macOS 不能可靠地验证最终 Windows 安装行为。建议由 GitHub Actions 或 Windows x64 主机运行
-`npm run pack:win`，然后在真实 Premiere Pro 中导入 XML，检查中文/空格路径、帧率、音视频
-链接和字幕时间码。
+`npm run pack:win` 已在 Apple Silicon macOS 上完成交叉打包。首次本地打包前，需要把固定版本的
+Windows 运行时准备到 `runtime/win32-x64/ffmpeg`、`runtime/win32-x64/whisper` 和
+`runtime/win32-x64/llama`；这些大文件不会提交到 Git。准备一次后，后续 UI 和工作流改动都可直接
+在 Mac 本地重复生成 NSIS EXE。GitHub Actions 仅用于干净 Windows 环境复现和正式发布。
+
+macOS 无法运行生成的 EXE，也不能代替 Windows 10/11 与 Premiere Pro 真机验收。发布前仍需检查
+安装/卸载、中文及空格路径、NVIDIA Vulkan 加速、长素材转录、XML 媒体重连和字幕时间码。
 
 ## 本地运行引擎
 
 “模型”窗口需要配置 FFmpeg、FFprobe、`whisper-cli`、Whisper `.bin` 模型、`llama-cli`
 和指令模型 `.gguf`。模型文件不进入安装包。主进程使用参数数组启动白名单程序，不经过 shell；
 渲染进程启用 context isolation、关闭 node integration，并且只有有限 IPC 接口。
+
+安装包内的 FFmpeg、Whisper 和 llama.cpp 运行时位于彼此独立的子目录，避免不同项目附带的
+同名 `ggml*.dll` 互相覆盖。用户只需在首次启动时选择三个模型文件，无需另外安装运行引擎。
 
 工程和模型路径保存在 Electron `userData`。转录时的 WAV/SRT 和 LLM 提示词只写入系统临时
 目录，并在成功、失败或取消后清理。控制台可能包含本地运行引擎的错误输出，不会主动联网。

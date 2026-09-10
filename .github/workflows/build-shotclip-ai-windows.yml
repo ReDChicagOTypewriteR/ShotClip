@@ -26,7 +26,9 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          New-Item -ItemType Directory -Force runtime/win32-x64 | Out-Null
+          New-Item -ItemType Directory -Force runtime/win32-x64/ffmpeg | Out-Null
+          New-Item -ItemType Directory -Force runtime/win32-x64/whisper | Out-Null
+          New-Item -ItemType Directory -Force runtime/win32-x64/llama | Out-Null
           New-Item -ItemType Directory -Force runtime-downloads | Out-Null
           $items = @(
             @{
@@ -57,31 +59,26 @@ jobs:
             $target = Join-Path runtime-downloads ([IO.Path]::GetFileNameWithoutExtension($item.Name))
             Expand-Archive $archive $target -Force
           }
-          Get-ChildItem runtime-downloads/ffmpeg -Recurse -File -Filter ffmpeg.exe | Copy-Item -Destination runtime/win32-x64/ffmpeg.exe
-          Get-ChildItem runtime-downloads/ffmpeg -Recurse -File -Filter ffprobe.exe | Copy-Item -Destination runtime/win32-x64/ffprobe.exe
-          Get-ChildItem runtime-downloads/whisper -Recurse -File | Where-Object { $_.Extension -in ".exe", ".dll" } | Copy-Item -Destination runtime/win32-x64
-          Get-ChildItem runtime-downloads/llama -Recurse -File | Where-Object { $_.Extension -in ".exe", ".dll" } | Copy-Item -Destination runtime/win32-x64
+          Get-ChildItem runtime-downloads/ffmpeg -Recurse -File -Filter ffmpeg.exe | Copy-Item -Destination runtime/win32-x64/ffmpeg/ffmpeg.exe
+          Get-ChildItem runtime-downloads/ffmpeg -Recurse -File -Filter ffprobe.exe | Copy-Item -Destination runtime/win32-x64/ffmpeg/ffprobe.exe
+          Get-ChildItem runtime-downloads/whisper -Recurse -File | Where-Object { $_.Extension -eq ".dll" -or $_.Name -in "whisper-cli.exe", "main.exe" } | Copy-Item -Destination runtime/win32-x64/whisper
+          Get-ChildItem runtime-downloads/llama -Recurse -File | Where-Object { $_.Extension -eq ".dll" -or $_.Name -eq "llama-cli.exe" } | Copy-Item -Destination runtime/win32-x64/llama
           $llamaSource = Get-ChildItem runtime-downloads/llama-source -Directory -Filter "llama.cpp-*" | Select-Object -First 1
           if (-not $llamaSource) { throw "llama.cpp source directory missing" }
           cmake -S $llamaSource.FullName -B runtime-downloads/llama-build -A x64 -DBUILD_SHARED_LIBS=OFF -DGGML_NATIVE=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_TOOLS=OFF -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_APP=OFF -DLLAMA_BUILD_EXAMPLES=ON
           cmake --build runtime-downloads/llama-build --config Release --target llama-embedding --parallel 2
-          Get-ChildItem runtime-downloads/llama-build -Recurse -File -Filter llama-embedding.exe | Select-Object -First 1 | Copy-Item -Destination runtime/win32-x64/llama-embedding.exe
-          if (-not (Test-Path runtime/win32-x64/whisper-cli.exe)) {
-            $legacy = Get-ChildItem runtime/win32-x64 -File -Filter main.exe | Select-Object -First 1
-            if ($legacy) { Copy-Item $legacy.FullName runtime/win32-x64/whisper-cli.exe }
+          Get-ChildItem runtime-downloads/llama-build -Recurse -File -Filter llama-embedding.exe | Select-Object -First 1 | Copy-Item -Destination runtime/win32-x64/llama/llama-embedding.exe
+          if (-not (Test-Path runtime/win32-x64/whisper/whisper-cli.exe)) {
+            $legacy = Get-ChildItem runtime/win32-x64/whisper -File -Filter main.exe | Select-Object -First 1
+            if ($legacy) { Copy-Item $legacy.FullName runtime/win32-x64/whisper/whisper-cli.exe }
           }
-          foreach ($required in "ffmpeg.exe", "ffprobe.exe", "whisper-cli.exe", "llama-cli.exe", "llama-embedding.exe") {
+          foreach ($required in "ffmpeg/ffmpeg.exe", "ffmpeg/ffprobe.exe", "whisper/whisper-cli.exe", "llama/llama-cli.exe", "llama/llama-embedding.exe") {
             if (-not (Test-Path "runtime/win32-x64/$required")) { throw "Missing runtime: $required" }
           }
           Invoke-WebRequest "https://raw.githubusercontent.com/FFmpeg/FFmpeg/n9.0/COPYING.GPLv3" -OutFile runtime/win32-x64/LICENSE.FFmpeg.txt
           Invoke-WebRequest "https://raw.githubusercontent.com/ggml-org/whisper.cpp/b4938/LICENSE" -OutFile runtime/win32-x64/LICENSE.whisper.cpp.txt
           Invoke-WebRequest "https://raw.githubusercontent.com/ggml-org/llama.cpp/b10516/LICENSE" -OutFile runtime/win32-x64/LICENSE.llama.cpp.txt
           Remove-Item runtime-downloads -Recurse -Force
-      - name: Generate installer icon
-        shell: pwsh
-        run: |
-          choco install imagemagick --no-progress -y
-          magick assets/icon.svg -define icon:auto-resize=256,128,64,48,32,16 assets/icon.ico
       - name: Verify and package
         run: npm run pack:win
       - name: Verify installer

@@ -28,11 +28,18 @@ async function atomicWrite(filePath: string, contents: string) {
 async function loadModelSettings() {
   const platform = process.platform === 'win32' ? 'win32-x64' : process.platform === 'darwin' ? `darwin-${process.arch}` : `linux-${process.arch}`
   const runtime = path.join(process.resourcesPath, 'runtime', platform)
-  const executable = (name: string) => {
-    const candidate = path.join(runtime, process.platform === 'win32' ? `${name}.exe` : name)
-    return fsSync.existsSync(candidate) ? candidate : ''
+  const executable = (name: string, family: 'ffmpeg' | 'whisper' | 'llama') => {
+    const fileName = process.platform === 'win32' ? `${name}.exe` : name
+    const candidates = [path.join(runtime, family, fileName), path.join(runtime, fileName)]
+    return candidates.find((candidate) => fsSync.existsSync(candidate)) || ''
   }
-  const defaults = { ffmpegPath: executable('ffmpeg'), ffprobePath: executable('ffprobe'), whisperPath: executable('whisper-cli'), llamaPath: executable('llama-cli'), embeddingPath: executable('llama-embedding') }
+  const defaults = {
+    ffmpegPath: executable('ffmpeg', 'ffmpeg'),
+    ffprobePath: executable('ffprobe', 'ffmpeg'),
+    whisperPath: executable('whisper-cli', 'whisper'),
+    llamaPath: executable('llama-cli', 'llama'),
+    embeddingPath: executable('llama-embedding', 'llama'),
+  }
   try { return { ...defaults, ...JSON.parse(await fs.readFile(path.join(app.getPath('userData'), 'model-settings.json'), 'utf8')) } }
   catch { return defaults }
 }
