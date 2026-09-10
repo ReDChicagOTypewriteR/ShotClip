@@ -44,8 +44,9 @@ macOS 无法运行生成的 EXE，也不能代替 Windows 10/11 与 Premiere Pro
 
 ## 本地运行引擎
 
-“模型”窗口需要配置 FFmpeg、FFprobe、`whisper-cli`、Whisper `.bin` 模型、`llama-cli`
-和指令模型 `.gguf`。模型文件不进入安装包。主进程使用参数数组启动白名单程序，不经过 shell；
+Windows 安装版会自动使用内置 FFmpeg、FFprobe、`whisper-cli`、`llama-cli` 和
+`llama-embedding`；“模型”窗口首次只需选择 Whisper `.bin`、导演 `.gguf` 和 Embedding `.gguf`。
+模型文件不进入安装包。主进程使用参数数组启动白名单程序，不经过 shell；
 渲染进程启用 context isolation、关闭 node integration，并且只有有限 IPC 接口。
 
 安装包内的 FFmpeg、Whisper 和 llama.cpp 运行时位于彼此独立的子目录，避免不同项目附带的
