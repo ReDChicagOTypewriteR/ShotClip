@@ -89,6 +89,6 @@ jobs:
           Get-FileHash $installer.FullName -Algorithm SHA256
       - uses: actions/upload-artifact@v7
         with:
-          name: ShotClip-AI-0.1.0-Windows-x64
-          path: shotclip-ai/release/ShotClip-AI-0.1.0-Windows-x64-Setup.exe
+          name: ShotClip-AI-0.1.1-Windows-x64
+          path: shotclip-ai/release/ShotClip-AI-0.1.1-Windows-x64-Setup.exe
           if-no-files-found: error

@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { assetSchema, validatePlan, type Project } from '../domain'
 import { compilePremiereXml, compileSrt } from './premiereXml'
 import { makeFallbackPlan, retrieveSegments } from './retrieval'
+import srtParser from '../../electron/srt-parser.cjs'
 
 const asset = assetSchema.parse({ id: 'a1', name: '中文 素材.mp4', path: 'C:\\素材 库\\中文 素材.mp4', kind: 'video', duration: 60, width: 1920, height: 1080, fps: 25, hasAudio: true, status: 'ready', progress: 1, fingerprint: 'x', segments: [
   { id: 's1', assetId: 'a1', start: 2, end: 8, text: '我最后悔的是让家里人承受了这些' },
@@ -14,6 +15,11 @@ const asset = assetSchema.parse({ id: 'a1', name: '中文 素材.mp4', path: 'C:
 const project: Project = { version: 1, id: 'p1', name: '测试', createdAt: '', updatedAt: '', fps: 25, width: 1920, height: 1080, assets: [asset], brief: '家庭影响' }
 
 describe('offline editorial workflow', () => {
+  it('keeps valid Whisper subtitles while skipping blank or inverted entries', () => {
+    const parsed = srtParser.parseWhisperSrt(`1\n00:00:01,000 --> 00:00:02,500\n有效内容\n\n2\n00:00:03,000 --> 00:00:03,000\n\n3\n00:00:05,000 --> 00:00:04,000\n倒置\n\n4\n00:00:06,000 --> 00:00:07,000\n[BLANK_AUDIO]`, 'asset-1', 300)
+    expect(parsed.skipped).toBe(3)
+    expect(parsed.segments).toEqual([{ id: 'asset-1:301000:0', assetId: 'asset-1', start: 301, end: 302.5, text: '有效内容' }])
+  })
   it('retrieves Chinese evidence and creates a reviewable fallback', () => {
     expect(retrieveSegments([asset], '家庭影响')[0].id).toBe('s1')
     const plan = validatePlan(makeFallbackPlan([asset], '家庭影响'), [asset])

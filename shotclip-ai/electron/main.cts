@@ -5,6 +5,7 @@ const fs = require('node:fs/promises')
 const fsSync = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
+const { parseWhisperSrt } = require('./srt-parser.cjs')
 
 let mainWindow: typeof BrowserWindow | null = null
 let activeProcess: import('node:child_process').ChildProcessWithoutNullStreams | null = null
@@ -126,26 +127,6 @@ function mediaKind(filePath: string) {
   return 'video'
 }
 
-function parseSrt(text: string, assetId: string, offset: number) {
-  const normalized = text.replace(/\r/g, '').replace(/^\uFEFF/, '').trim()
-  if (!normalized) return []
-  const stamp = (value: string) => {
-    const match = /^(\d+):(\d{2}):(\d{2})[,.](\d{3})$/.exec(value.trim())
-    if (!match) throw new Error(`无法解析字幕时间：${value}`)
-    return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]) + Number(match[4]) / 1000
-  }
-  return normalized.split(/\n\s*\n/).map((block: string, index: number) => {
-    const lines = block.split('\n')
-    const timeIndex = lines.findIndex((line: string) => line.includes('-->'))
-    if (timeIndex < 0) throw new Error('Whisper 返回了无效 SRT')
-    const [start, end] = lines[timeIndex].split('-->')
-    const begin = offset + stamp(start), finish = offset + stamp(end)
-    const content = lines.slice(timeIndex + 1).join(' ').trim()
-    if (!content || finish <= begin) throw new Error('Whisper 返回了空白或倒置片段')
-    return { id: `${assetId}:${Math.round(begin * 1000)}:${index}`, assetId, start: begin, end: finish, text: content }
-  })
-}
-
 function extractJson(text: string) {
   const start = text.indexOf('{')
   if (start < 0) throw new Error('模型没有返回 JSON')
@@ -255,7 +236,9 @@ ipcMain.handle('media:transcribe', async (_event: unknown, asset: any) => {
       await run(settings.ffmpegPath || 'ffmpeg', ['-nostdin', '-v', 'error', '-y', '-ss', String(offset), '-i', asset.path, '-t', String(Math.min(chunkSize, asset.duration - offset)), '-vn', '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', wave])
       await run(settings.whisperPath, ['-m', settings.whisperModelPath, '-f', wave, '-l', 'auto', '-osrt', '-of', prefix, '-pp', '-t', '8'])
       const srt = await fs.readFile(`${prefix}.srt`, 'utf8')
-      segments.push(...parseSrt(srt, asset.id, offset))
+      const parsed = parseWhisperSrt(srt, asset.id, offset)
+      segments.push(...parsed.segments)
+      if (parsed.skipped > 0) emit('log', `Whisper 输出中已跳过 ${parsed.skipped} 条空白、零时长或格式异常字幕`)
       const completed = Math.min(asset.duration, offset + chunkSize)
       await atomicWrite(cachePath, JSON.stringify({ completed, segments }))
       await fs.rm(`${prefix}.srt`, { force: true })
